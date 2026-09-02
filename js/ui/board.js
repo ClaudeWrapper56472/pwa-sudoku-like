@@ -1,0 +1,247 @@
+import * as Grid from "../puzzle/grid.js";
+import { regionColour } from "./palette.js";
+import { Emitter } from "../util/emitter.js";
+
+/**
+ * The grid of cells.
+ *
+ * Board owns the cell elements and nothing else. It listens to GameState and
+ * pushes what it hears down into cells; it sends taps back up as events rather
+ * than calling GameState itself, so the same board could be reused for a replay
+ * viewer or a tutorial with a different controller behind it.
+ *
+ * The board is rebuilt whenever a level loads, because the size changes between
+ * levels -- a 5x5 Easy and a 9x9 Expert are the same grid with a different number
+ * of children.
+ *
+ * A cell is a div with the region colour on it and a class per mark. The cross is
+ * an inline SVG so its geometry scales with the cell rather than being redrawn,
+ * and the cat is an img so one file serves every board size.
+ *
+ * Emits: cellTapped(index), cellDoubleTapped(index),
+ *        dragStarted(index), dragReached(index), dragEnded()
+ */
+export class BoardView extends Emitter {
+	/**
+	 * A second tap inside this window means "place a cat" rather than "cross out".
+	 * Touch sends no double-click event of its own, so the timing is done here and
+	 * mouse and touch behave identically.
+	 */
+	static DOUBLE_TAP_MS = 350;
+
+	/**
+	 * Gap between cells, as a fraction of the board. It is also exactly how far a
+	 * cat may spill over a cell edge, which is what makes the art look like it
+	 * fills the cell rather than floating inside it.
+	 */
+	static GAP_RATIO = 0.0072;
+
+	constructor(root, game) {
+		super();
+		this.root = root;
+		this.game = game;
+		this._cells = [];
+		this._hintedCell = -1;
+
+		/**
+		 * Pointer state. `_origin` is where the press landed, `_current` is the cell
+		 * the pointer is over now; they differ the moment a press becomes a drag.
+		 */
+		this._origin = -1;
+		this._current = -1;
+		this._dragging = false;
+		this._lastTapCell = -1;
+		this._lastTapAt = -1;
+		this._pointerId = null;
+
+		this._installPointerHandlers();
+		new ResizeObserver(() => this._measure()).observe(this.root);
+
+		game.on("levelLoaded", () => {
+			this._hintedCell = -1;
+			this._rebuild();
+		});
+		game.on("cellsChanged", () => this.refreshAll());
+		game.on("selectionChanged", () => this._refreshHighlights());
+		game.on("hintOffered", (index, _message, success) => {
+			this._hintedCell = success ? index : -1;
+			for (let i = 0; i < this._cells.length; i += 1) {
+				this._cells[i].classList.toggle("is-hinted", i === this._hintedCell);
+			}
+		});
+		game.on("levelFailed", () => this.refreshAll());
+	}
+
+	_rebuild() {
+		this.root.replaceChildren();
+		this._cells = [];
+
+		const state = this.game.board;
+		if (state.level === null) return;
+		const n = state.size();
+		this.root.style.setProperty("--columns", String(n));
+
+		const fragment = document.createDocumentFragment();
+		for (let index = 0; index < n * n; index += 1) {
+			const cell = document.createElement("div");
+			cell.className = "cell";
+			cell.dataset.index = String(index);
+			cell.style.setProperty("--region", regionColour(state.regionAt(index)));
+
+			const cross = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			cross.setAttribute("class", "cross");
+			cross.setAttribute("viewBox", "0 0 100 100");
+			cross.setAttribute("aria-hidden", "true");
+			// reach 24 of a 100-unit cell, stroke 11 -- the proportions the original
+			// drew, so a cross reads the same at every board size.
+			cross.innerHTML = '<path d="M26 26 74 74 M74 26 26 74" />';
+			cell.append(cross);
+
+			const cat = document.createElement("img");
+			cat.className = "cat";
+			cat.src = "art/cat.png";
+			cat.alt = "";
+			cat.draggable = false;
+			cell.append(cat);
+
+			fragment.append(cell);
+			this._cells.push(cell);
+		}
+		this.root.append(fragment);
+		this._measure();
+		this.refreshAll();
+	}
+
+	/**
+	 * Publishes the cell size and gap as custom properties, so every cell metric --
+	 * corner radius, selection border, how far the cat overhangs -- is a calc()
+	 * off one measured number rather than a value recomputed per cell.
+	 */
+	_measure() {
+		const n = this.game.board.size();
+		if (n === 0) return;
+		const width = this.root.clientWidth;
+		if (width === 0) return;
+		const gap = Math.max(2, Math.round(width * BoardView.GAP_RATIO));
+		const cell = (width - (n - 1) * gap) / n;
+		this.root.style.setProperty("--gap", `${gap}px`);
+		this.root.style.setProperty("--cell", `${cell}px`);
+	}
+
+	/**
+	 * The whole board is refreshed rather than just the cells a move named. At most
+	 * a hundred cells, and the reveal at the end of a level touches all of them
+	 * anyway; the simplicity is worth more than the saved comparisons.
+	 */
+	refreshAll() {
+		if (this._cells.length === 0) return;
+		const state = this.game.board;
+		for (let index = 0; index < this._cells.length; index += 1) {
+			const cell = this._cells[index];
+			const mark = state.marks[index];
+			cell.classList.toggle("is-cat", mark === Grid.Mark.CAT);
+			cell.classList.toggle("is-cross", mark === Grid.Mark.EXCLUDED);
+			cell.classList.toggle("is-wrong", mark === Grid.Mark.WRONG);
+		}
+		this._refreshHighlights();
+	}
+
+	_refreshHighlights() {
+		const selected = this.game.selected;
+		for (let index = 0; index < this._cells.length; index += 1) {
+			this._cells[index].classList.toggle("is-selected", index === selected);
+		}
+	}
+
+	// --- Pointer input ------------------------------------------------------
+	//
+	// All of it lives on the board rather than the cells. Pointer capture routes
+	// every move and the release to the element the press landed on, so a cell
+	// would only ever hear about itself -- which is no use to a gesture whose whole
+	// job is to cross a run of other cells.
+	//
+	// A press does not commit to being a tap or a drag. It becomes a drag the
+	// moment the pointer enters a *different* cell, and stays a tap otherwise. That
+	// needs no pixel threshold and matches what a finger expects: a small wobble
+	// inside one cell is still a tap.
+
+	_installPointerHandlers() {
+		this.root.addEventListener("pointerdown", (event) => {
+			if (!event.isPrimary || event.button !== 0) return;
+			event.preventDefault();
+			this._pointerId = event.pointerId;
+			this.root.setPointerCapture(event.pointerId);
+			this._press(this._cellAt(event));
+		});
+
+		this.root.addEventListener("pointermove", (event) => {
+			if (event.pointerId !== this._pointerId || this._origin < 0) return;
+			this._move(this._cellAt(event));
+		});
+
+		const finish = (event) => {
+			if (event.pointerId !== this._pointerId) return;
+			this._pointerId = null;
+			this._release(this._cellAt(event));
+		};
+		this.root.addEventListener("pointerup", finish);
+		this.root.addEventListener("pointercancel", finish);
+
+		// Right-click is the mouse shorthand for the double-tap.
+		this.root.addEventListener("contextmenu", (event) => {
+			event.preventDefault();
+			const index = this._cellAt(event);
+			if (index >= 0) this.emit("cellDoubleTapped", index);
+		});
+	}
+
+	_press(index) {
+		this._origin = index;
+		this._current = index;
+		this._dragging = false;
+	}
+
+	_move(index) {
+		if (index < 0 || index === this._current || this._origin < 0) return;
+		if (!this._dragging) {
+			this._dragging = true;
+			this.emit("dragStarted", this._origin);
+		}
+		this._current = index;
+		this.emit("dragReached", index);
+	}
+
+	_release(index) {
+		if (this._dragging) {
+			this.emit("dragEnded");
+		} else if (this._origin >= 0 && index === this._origin) {
+			const now = performance.now();
+			if (this._lastTapCell === index && now - this._lastTapAt <= BoardView.DOUBLE_TAP_MS) {
+				this._lastTapCell = -1;
+				this.emit("cellDoubleTapped", index);
+			} else {
+				this._lastTapCell = index;
+				this._lastTapAt = now;
+				this.emit("cellTapped", index);
+			}
+		}
+		this._origin = -1;
+		this._current = -1;
+		this._dragging = false;
+	}
+
+	/**
+	 * Which cell sits under a pointer event, or -1.
+	 *
+	 * elementFromPoint rather than arithmetic on the grid: it costs one hit test,
+	 * it is correct through any transform or scroll the page later grows, and the
+	 * gap between cells genuinely belongs to no cell, which is the behaviour a
+	 * drag wants anyway.
+	 */
+	_cellAt(event) {
+		const target = document.elementFromPoint(event.clientX, event.clientY);
+		const cell = target?.closest?.(".cell");
+		if (!cell || cell.parentElement !== this.root) return -1;
+		return Number(cell.dataset.index);
+	}
+}

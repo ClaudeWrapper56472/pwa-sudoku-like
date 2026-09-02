@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover so the paper background reaches under the notch; the
+     safe-area insets in the stylesheet keep the controls out from under it. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7efe3">
+<meta name="description" content="A cat-themed logic puzzle. One cat per row, column and colour. No touching.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nine Lives">
+<title>Nine Lives</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<main id="app">
+
+	<section id="menu-screen" class="screen menu">
+		<img class="mascot" src="art/mascot.png" alt="A grinning teal cat" width="810" height="615">
+		<h1>Nine Lives</h1>
+		<p class="subtitle">One cat per row, column and colour. No touching.</p>
+		<button id="play-button" type="button" class="primary">Play level 1</button>
+		<div id="menu-stats" class="stats"></div>
+	</section>
+
+	<section id="game-screen" class="screen game" hidden>
+
+		<button id="back-button" type="button" class="corner">Menu</button>
+
+		<div class="play-area">
+			<header class="header-row">
+				<span id="tier-label" class="tier">Level 1</span>
+				<span id="lives" class="lives" role="img" aria-label="3 of 3 lives left"></span>
+				<span id="time-label" class="time">0:00</span>
+			</header>
+
+			<!-- The grid keeps itself square, so the header packs directly above it
+			     and the cat count directly below however tall the screen is.
+			     No role="grid": that needs row and gridcell descendants, and the
+			     cells are direct children with no row wrappers. An invalid role is
+			     worse than none, so the keyboard path and the status live region
+			     carry it instead. -->
+			<div id="board" class="board" aria-label="Puzzle board"></div>
+
+			<p id="progress-label" class="progress">0 / 5 cats</p>
+		</div>
+
+		<!-- Pinned to the bottom edge rather than stacked with the board. Controls
+		     belong where the thumb rests. -->
+		<div class="bottom-bar">
+			<p id="status-label" class="status" role="status" aria-live="polite"></p>
+			<div class="toolbar">
+				<button id="undo-button" type="button">Undo</button>
+				<button id="redo-button" type="button">Redo</button>
+				<button id="clear-button" type="button">Clear</button>
+				<button id="hint-button" type="button">Hint</button>
+			</div>
+		</div>
+
+		<div id="loading-panel" class="overlay solid" hidden>
+			<p id="loading-label">Setting up…</p>
+		</div>
+
+		<div id="result-panel" class="overlay" hidden>
+			<div class="card">
+				<img class="mascot" src="art/mascot.png" alt="" width="810" height="615">
+				<h2 id="result-title">Level done</h2>
+				<p id="result-detail"></p>
+				<button id="again-button" type="button" class="primary">Next level</button>
+				<button id="result-menu-button" type="button">Menu</button>
+			</div>
+		</div>
+
+	</section>
+
+</main>
+
+<script type="module" src="js/ui/main.js"></script>
+</body>
+</html>
