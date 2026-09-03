@@ -258,22 +258,6 @@ button:disabled {
 	margin: 0.15rem 0;
 }
 
-.notice {
-	margin: 0.5rem 0 0;
-	color: var(--ink-soft);
-}
-
-/* A button that reads as a link inside a sentence. */
-button.inline,
-button.inline:hover {
-	min-height: 0;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--accent-deep);
-	text-decoration: underline;
-}
-
 /*
  * A landscape phone, or a short desktop window. The mascot has shrunk to nothing
  * by this height anyway, so it goes, and the title stops taking a tenth of the

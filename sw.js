@@ -84,13 +84,8 @@ self.addEventListener("fetch", (event) => {
 	const request = event.request;
 	if (request.method !== "GET") return;
 	if (new URL(request.url).origin !== self.location.origin) return;
-	// A no-store request wants the network's own answer, redirect and all. The
-	// menu sends one to find out whether the session has lapsed.
-	if (request.cache === "no-store") return;
 
 	if (request.mode === "navigate") {
-		// The sign-in is left to the browser itself, as on the first visit.
-		if (new URL(request.url).searchParams.has("signin")) return;
 		event.respondWith(navigate(request));
 		return;
 	}
@@ -106,14 +101,9 @@ self.addEventListener("fetch", (event) => {
 });
 
 /**
- * Opening the app. Any URL in scope is the app, so a deep link or a refresh from
- * the home screen gets the shell rather than a 404.
- *
- * Behind access control, a lapsed session answers with a redirect to the sign-in
- * and a failed sign-in with a 401 page. Neither is the app, so while a copy of
- * the shell is cached that opens instead, and the sign-in waits until the menu
- * asks for it with ?signin. With nothing cached, the first visit, the redirect
- * goes through because there is nothing else to show.
+ * Opening the app. Any URL in scope is the app, so a deep link, a refresh from
+ * the home screen, or a launch with no network gets the shell rather than a 404
+ * or an error page.
  */
 async function navigate(request) {
 	const shell = async () => await caches.match(request) ?? await caches.match("index.html");
@@ -143,17 +133,9 @@ async function freshest(request) {
 	return await caches.match(request) ?? response;
 }
 
-/**
- * Fetches and files the result, so the next load has it offline.
- *
- * Redirects are not followed where the request allows it: behind access control
- * they lead to the sign-in three hops away, and a module's URL must never file
- * what comes back. A no-cors request cannot opt out, so a stylesheet or image
- * still follows, comes back opaque, and fails the ok check instead.
- */
+/** Fetches and files the result, so the next load has it offline. */
 async function store(request) {
-	const manual = request.mode === "cors" || request.mode === "same-origin";
-	const response = await fetch(request, manual ? { redirect: "manual" } : undefined);
+	const response = await fetch(request);
 	if (response.ok) {
 		const copy = response.clone();
 		const cache = await caches.open(CACHE);

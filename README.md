@@ -56,6 +56,17 @@ The self-check needs Node 18 or newer (`structuredClone`, `crypto`). It runs the
 whole puzzle layer headlessly, and verifies every one of the 320 shipped levels
 is legal, uniquely solvable and rated to the tier it is filed under.
 
+## Deploying
+
+A push to `main` runs the self-check and, if it passes, publishes to GitHub
+Pages. There is no build step: the job copies the app's files into `_site` and
+uploads that, so the list in `.github/workflows/pages.yml` has to stay in step
+with `ASSETS` in `sw.js`.
+
+Settings → Pages → Source has to be set to **GitHub Actions** for the workflow to
+have anywhere to publish to. Every URL in the app is relative, so it runs under
+the project path without any base configuration.
+
 ## Layout
 
 ```
@@ -96,6 +107,7 @@ js/
 content/level_bank.json  320 precomputed levels (data, not code)
 art/, icons/             The cat, the mascot, the app icons
 tests/verify.mjs         Self-check for the puzzle layer
+.github/workflows/       Self-check on every push; deploy to Pages from main
 ```
 
 ## What the port changed

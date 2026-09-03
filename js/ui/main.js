@@ -68,27 +68,6 @@ game.on("levelFailed", () => menu.refresh());
 showMenu();
 document.querySelector("#boot-panel").remove();
 
-/**
- * Behind access control the session lapses every couple of hours. The service
- * worker keeps the app opening from its cache regardless, so all that stops is
- * updates. Rather than bounce every launch through the sign-in, the menu checks
- * once and offers it. no-store keeps the worker out of the probe.
- */
-const sessionNotice = document.querySelector("#session-notice");
-document.querySelector("#signin-button").addEventListener("click", () => {
-	location.assign("./?signin");
-});
-if (new URLSearchParams(location.search).has("signin")) {
-	history.replaceState(null, "", location.pathname);
-}
-fetch("manifest.webmanifest", { cache: "no-store", redirect: "manual" })
-	.then((response) => {
-		sessionNotice.hidden = !(response.type === "opaqueredirect" || response.status === 401);
-	})
-	.catch(() => {
-		// Offline. Nothing to sign in to.
-	});
-
 if ("serviceWorker" in navigator) {
 	window.addEventListener("load", () => {
 		navigator.serviceWorker.register("sw.js").catch((error) => {
