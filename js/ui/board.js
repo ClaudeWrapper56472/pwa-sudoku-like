@@ -18,16 +18,19 @@ import { Emitter } from "../util/emitter.js";
  * an inline SVG so its geometry scales with the cell rather than being redrawn,
  * and the cat is an img so one file serves every board size.
  *
- * Emits: cellTapped(index), cellDoubleTapped(index),
+ * Emits: cellTapped(index), cellLongPressed(index), cellRightClicked(index),
  *        dragStarted(index), dragReached(index), dragEnded()
  */
 export class BoardView extends Emitter {
 	/**
-	 * A second tap inside this window means "place a cat" rather than "cross out".
-	 * Touch sends no double-click event of its own, so the timing is done here and
-	 * mouse and touch behave identically.
+	 * Hold this long without leaving the cell and a cat is placed.
+	 *
+	 * A hold rather than a double-tap because nothing has been released yet when it
+	 * fires, so no tap has happened and there is no cross to show and then take
+	 * back. It is also harder to do by accident, which suits the one move in the
+	 * game that costs something.
 	 */
-	static DOUBLE_TAP_MS = 350;
+	static LONG_PRESS_MS = 350;
 
 	/**
 	 * Gap between cells, as a fraction of the board. It is also exactly how far a
@@ -50,9 +53,10 @@ export class BoardView extends Emitter {
 		this._origin = -1;
 		this._current = -1;
 		this._dragging = false;
-		this._lastTapCell = -1;
-		this._lastTapAt = -1;
 		this._pointerId = null;
+		/** The pending hold, and whether it already fired for this press. */
+		this._longPressTimer = null;
+		this._longPressFired = false;
 
 		this._installPointerHandlers();
 		new ResizeObserver(() => this._measure()).observe(this.root);
@@ -73,6 +77,12 @@ export class BoardView extends Emitter {
 	}
 
 	_rebuild() {
+		// A level can load mid-gesture, and the cell the finger was on is about to
+		// stop existing. Drop the gesture rather than let it report cells from a
+		// board that has gone.
+		this._endGesture?.();
+		this._cancelLongPress();
+		this._release(-1);
 		this.root.replaceChildren();
 		this._cells = [];
 
@@ -166,32 +176,56 @@ export class BoardView extends Emitter {
 	// inside one cell is still a tap.
 
 	_installPointerHandlers() {
-		this.root.addEventListener("pointerdown", (event) => {
-			if (!event.isPrimary || event.button !== 0) return;
-			event.preventDefault();
+		// Only the press is listened for on the board. Move and release are tracked
+		// on the window for the length of the gesture.
+		//
+		// The obvious alternative, setPointerCapture on the board, is the flakiest
+		// corner of Pointer Events across engines -- and it buys nothing here,
+		// because _cellAt works from viewport coordinates and so does not care
+		// which element the event was delivered to. Window listeners also mean a
+		// finger that leaves the board still ends its run properly, rather than
+		// leaving a gesture stuck open until the next press.
+		const onMove = (event) => {
+			if (event.pointerId !== this._pointerId || this._origin < 0) return;
+			this._move(this._cellAt(event));
+		};
+		const onFinish = (event) => {
+			if (event.pointerId !== this._pointerId) return;
+			this._endGesture();
+			this._release(this._cellAt(event));
+		};
+
+		this._beginGesture = (event) => {
 			this._pointerId = event.pointerId;
-			this.root.setPointerCapture(event.pointerId);
+			window.addEventListener("pointermove", onMove);
+			window.addEventListener("pointerup", onFinish);
+			window.addEventListener("pointercancel", onFinish);
+		};
+		this._endGesture = () => {
+			this._pointerId = null;
+			window.removeEventListener("pointermove", onMove);
+			window.removeEventListener("pointerup", onFinish);
+			window.removeEventListener("pointercancel", onFinish);
+		};
+
+		this.root.addEventListener("pointerdown", (event) => {
+			// A second finger while a run is in progress is ignored rather than
+			// hijacking it: a drag is one gesture by one pointer.
+			if (!event.isPrimary || event.button !== 0 || this._pointerId !== null) return;
+			event.preventDefault();
+			this._beginGesture(event);
 			this._press(this._cellAt(event));
 		});
 
-		this.root.addEventListener("pointermove", (event) => {
-			if (event.pointerId !== this._pointerId || this._origin < 0) return;
-			this._move(this._cellAt(event));
-		});
-
-		const finish = (event) => {
-			if (event.pointerId !== this._pointerId) return;
-			this._pointerId = null;
-			this._release(this._cellAt(event));
-		};
-		this.root.addEventListener("pointerup", finish);
-		this.root.addEventListener("pointercancel", finish);
-
-		// Right-click is the mouse shorthand for the double-tap.
+		// Right-click is the mouse shorthand for the hold, for anyone who would
+		// rather not wait out the timer. A touch hold can also raise a context menu
+		// on some engines, and that hold has already placed its cat, so the event is
+		// swallowed rather than acted on twice.
 		this.root.addEventListener("contextmenu", (event) => {
 			event.preventDefault();
+			if (this._longPressFired) return;
 			const index = this._cellAt(event);
-			if (index >= 0) this.emit("cellDoubleTapped", index);
+			if (index >= 0) this.emit("cellRightClicked", index);
 		});
 	}
 
@@ -199,12 +233,22 @@ export class BoardView extends Emitter {
 		this._origin = index;
 		this._current = index;
 		this._dragging = false;
+		this._longPressFired = false;
+		if (index < 0) return;
+		this._longPressTimer = setTimeout(() => {
+			this._longPressTimer = null;
+			this._longPressFired = true;
+			this.emit("cellLongPressed", index);
+		}, BoardView.LONG_PRESS_MS);
 	}
 
 	_move(index) {
 		if (index < 0 || index === this._current || this._origin < 0) return;
 		if (!this._dragging) {
 			this._dragging = true;
+			// Leaving the cell makes this a drag, not a hold. A wobble inside one cell
+			// does not get here, so a finger that shifts a little still holds.
+			this._cancelLongPress();
 			this.emit("dragStarted", this._origin);
 		}
 		this._current = index;
@@ -212,22 +256,26 @@ export class BoardView extends Emitter {
 	}
 
 	_release(index) {
+		const held = this._longPressFired;
+		this._cancelLongPress();
+		this._longPressFired = false;
 		if (this._dragging) {
 			this.emit("dragEnded");
+		} else if (held) {
+			// The hold already placed the cat. Letting the release through as a tap
+			// as well would ask the board to cross a cell it has just settled.
 		} else if (this._origin >= 0 && index === this._origin) {
-			const now = performance.now();
-			if (this._lastTapCell === index && now - this._lastTapAt <= BoardView.DOUBLE_TAP_MS) {
-				this._lastTapCell = -1;
-				this.emit("cellDoubleTapped", index);
-			} else {
-				this._lastTapCell = index;
-				this._lastTapAt = now;
-				this.emit("cellTapped", index);
-			}
+			this.emit("cellTapped", index);
 		}
 		this._origin = -1;
 		this._current = -1;
 		this._dragging = false;
+	}
+
+	_cancelLongPress() {
+		if (this._longPressTimer === null) return;
+		clearTimeout(this._longPressTimer);
+		this._longPressTimer = null;
 	}
 
 	/**

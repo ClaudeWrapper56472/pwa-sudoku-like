@@ -118,8 +118,9 @@ export class GameState extends Emitter {
 		this._prefetchWanted = 0;
 
 		this._run = null;
-		/** The row a drag began in. A drag never leaves it. */
-		this._runRow = -1;
+		/** Where a drag started, and which axis it has committed to. */
+		this._runOrigin = -1;
+		this._runAxis = null;
 
 		this._worker = new LevelWorker();
 		this._prefetchWorker = new LevelWorker();
@@ -238,8 +239,7 @@ export class GameState extends Emitter {
 	}
 
 	_resetFor(level) {
-		this._run = null;
-		this._runRow = -1;
+		this._clearRun();
 		this.board.setup(level);
 		this.history.clear();
 		this.tier = level.tier;
@@ -260,8 +260,7 @@ export class GameState extends Emitter {
 		const restored = new PuzzleState();
 		if (!restored.fromJSON(session.board ?? {})) return false;
 
-		this._run = null;
-		this._runRow = -1;
+		this._clearRun();
 		this.board.setup(restored.level);
 		this.board.marks = restored.marks;
 		this.history.clear();
@@ -366,10 +365,15 @@ export class GameState extends Emitter {
 	 * the target up front is what stops a drag flickering cells on and off as it
 	 * wanders back over its own path.
 	 *
-	 * A drag stays in the row it started in. A finger crossing a 10x10 board
-	 * wanders by a cell or two without meaning to, and a gesture that can wipe a
-	 * diagonal through your working is one you have to aim carefully -- which
-	 * defeats the point of it being the quick gesture.
+	 * A drag stays on one axis. The first cell it reaches decides which: leave the
+	 * starting cell sideways and it is a row, leave it vertically and it is a
+	 * column, and from then on nothing off that line is touched.
+	 *
+	 * Committing to an axis is what makes the gesture safe to aim carelessly. A
+	 * finger crossing a 10x10 board wanders by a cell or two without meaning to,
+	 * and a free-form drag that can wipe a diagonal through your working is one
+	 * you would have to aim precisely -- which defeats the point of it being the
+	 * quick gesture.
 	 *
 	 * Settled cells are skipped entirely: a drag cannot disturb a cat or a red
 	 * cross.
@@ -379,7 +383,8 @@ export class GameState extends Emitter {
 		const mark = this.board.marks[index];
 		if (mark === Grid.Mark.CAT) return;
 		this.select(index);
-		this._runRow = Grid.rowOf(this.size(), index);
+		this._runOrigin = index;
+		this._runAxis = null;
 		this._run = CrossRunCommand.create(
 			mark === Grid.Mark.EXCLUDED ? Grid.Mark.EMPTY : Grid.Mark.EXCLUDED);
 		this.extendCrossRun(index);
@@ -387,8 +392,29 @@ export class GameState extends Emitter {
 
 	extendCrossRun(index) {
 		if (this._run === null || index < 0) return;
-		if (Grid.rowOf(this.size(), index) !== this._runRow) return;
+		if (!this._onRunAxis(index)) return;
 		if (this._run.extend(this.board, index)) this.board.notify([index]);
+	}
+
+	/**
+	 * Whether a cell is on the drag's line, deciding the axis if it is still open.
+	 *
+	 * A pointer moving fast can jump straight to a cell that shares neither the
+	 * row nor the column of the start. That cell is skipped and the axis is left
+	 * open, so the next one along can still settle it -- better than committing to
+	 * a line the player never actually traced.
+	 */
+	_onRunAxis(index) {
+		const n = this.size();
+		const sameRow = Grid.rowOf(n, index) === Grid.rowOf(n, this._runOrigin);
+		const sameColumn = Grid.colOf(n, index) === Grid.colOf(n, this._runOrigin);
+		if (this._runAxis === null) {
+			if (index === this._runOrigin) return true;
+			if (sameRow) this._runAxis = "row";
+			else if (sameColumn) this._runAxis = "column";
+			else return false;
+		}
+		return this._runAxis === "row" ? sameRow : sameColumn;
 	}
 
 	/**
@@ -398,10 +424,15 @@ export class GameState extends Emitter {
 	endCrossRun() {
 		if (this._run === null) return;
 		const run = this._run;
-		this._run = null;
-		this._runRow = -1;
+		this._clearRun();
 		if (run.isEmpty()) return;
 		this.history.pushApplied(run, this.board);
+	}
+
+	_clearRun() {
+		this._run = null;
+		this._runOrigin = -1;
+		this._runAxis = null;
 	}
 
 	clearCell(index) {

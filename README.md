@@ -11,20 +11,24 @@ An N×N grid is carved into N irregular colour regions. Place one cat in every
 row, every column and every colour — and no two cats may touch, not even
 diagonally. Every level has exactly one solution.
 
-Tap a cell to cross it out, or **drag along a row to cross the whole run**.
-Crossing out is the bulk of play, so it gets the cheap gesture — and it is free,
-a note to yourself that is never checked.
+Tap a cell to cross it out, or **drag along a row or column to cross the whole
+run**. The first cell a drag reaches decides its axis, so a wandering finger
+cannot wipe a diagonal through your working. Crossing out is the bulk of play, so
+it gets the cheap gesture — and it is free, a note to yourself that is never
+checked.
 
-Double-tap to place a cat. That is the committing move and the only one that
+**Hold a cell** to place a cat. That is the committing move and the only one that
 costs anything: a cat on the wrong cell is refused and **spends one of three
-lives**. Lose all three and you start that same level again.
+lives**. Lose all three and you start that same level again. A hold is harder to
+do by accident than a tap, and because nothing is released until it fires, it
+never flashes a cross on the way to the cat.
 
 There is no difficulty menu. Level 1 is a gentle 5×5 and every level after it is
 a little harder. Finishing one moves you up; losing one does not move you back.
 
 **Keyboard:** arrows move, `Space`/`X` crosses out, `Enter`/`C` places a cat,
 `Backspace` clears, `H` hints, `Cmd`/`Ctrl`+`Z` undoes, `Esc` leaves. Right-click
-is the mouse shorthand for a double-tap.
+is the mouse shorthand for a hold.
 
 ## Running it
 
@@ -53,7 +57,7 @@ is legal, uniquely solvable and rated to the tier it is filed under.
 ```
 index.html               The shell: both screens, shown and hidden
 manifest.webmanifest     Installability: name, icons, portrait, standalone
-sw.js                    Precaches everything; cache-first so play works offline
+sw.js                    Precaches everything; code network-first, content cache-first
 css/style.css            Widget chrome, layout, and every cell rule
 
 js/puzzle/               Pure puzzle logic. No DOM, so it all runs under Node.
@@ -102,7 +106,7 @@ to move is everything that touched the engine.
 | `Thread` for generation and prefetch | Two long-lived module Web Workers, one request/reply each |
 | `RandomNumberGenerator` | `Rng`, PCG32 in BigInt, so a seed still reproduces a level |
 | `_draw()` per cell | One div per cell: CSS for the fill and outline, inline SVG for the cross, an `<img>` for the cat |
-| `_gui_input` with touch and mouse branches | Pointer events, one path for both |
+| `_gui_input` with touch and mouse branches | Pointer events on `window` for the length of the gesture, one path for both |
 | `user://sudoku_save.json`, temp file plus rename | `localStorage`, where a write is already all-or-nothing |
 | `NOTIFICATION_APPLICATION_PAUSED` and friends | `visibilitychange`, `pagehide`, `freeze` |
 | `PackedByteArray` / `PackedInt32Array` | `Uint8Array` / `Int32Array` |
@@ -115,6 +119,17 @@ Cell metrics are the one place the drawing model shows through. Godot computed
 corner radius, outline width and the cat's overhang from the cell's pixel size
 inside `_draw()`. `BoardView` measures the board once and publishes `--cell` and
 `--gap`, and every one of those rules is a `calc()` off those two numbers.
+
+Placing a cat is a hold rather than a double-tap. A double-tap has to cross the
+cell out on the first tap, because nothing at that moment knows a second is
+coming, and then paint the cat over it -- so the cross visibly flashes on and off
+under the move replacing it, and lands on the undo stack having never been asked
+for. A hold fires before anything is released, so no tap ever happens.
+
+The drag also gained an axis. The original locked a run to the row it started
+in; here the first cell the drag reaches decides row or column, which keeps the
+same protection against a careless swipe wiping a diagonal while making vertical
+runs possible.
 
 ### One bug fixed rather than reproduced
 

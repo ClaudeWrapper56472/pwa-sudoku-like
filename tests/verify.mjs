@@ -362,6 +362,17 @@ group("Commands");
 	clear.revert(state);
 	eq("and it comes back in one press", state.marks[2], Grid.Mark.EXCLUDED);
 
+	// A drag commits to one axis, decided by the first cell it reaches, and then
+	// ignores everything off that line.
+	const axis = new PuzzleState();
+	axis.setup(level);
+	const down = CrossRunCommand.create(Grid.Mark.EXCLUDED);
+	// Walking a column: cells 1, 5, 9, 13 on a 4x4 all share column 1.
+	for (const index of [1, 5, 9, 13]) down.extend(axis, index);
+	eq("a column run crosses its whole column",
+		[1, 5, 9, 13].map((i) => axis.marks[i]), [1, 1, 1, 1]);
+	eq("and leaves the rest of the board alone", axis.marks[2], Grid.Mark.EMPTY);
+
 	// A command recorded before a cell was settled must not repaint over it. Cross
 	// a cell, clear the board, then lose a life on that same cell: the clear
 	// command still holds the old cross, and reverting it blindly would wipe the

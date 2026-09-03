@@ -275,6 +275,9 @@ button:disabled {
 	-webkit-user-select: none;
 	user-select: none;
 	-webkit-tap-highlight-color: transparent;
+	/* iOS raises a selection callout on a long press, which is exactly the
+	   gesture that places a cat. */
+	-webkit-touch-callout: none;
 }
 
 .cell {

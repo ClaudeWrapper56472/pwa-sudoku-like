@@ -63,10 +63,14 @@ export class GameScreen extends Emitter {
 			this.game.select(index);
 			this.game.toggleCross(index);
 		});
-		this._board.on("cellDoubleTapped", (index) => {
-			this.game.select(index);
-			this.game.toggleCat(index);
-		});
+		// Two ways to commit a cat, one meaning. The board reports the gesture; what
+		// it amounts to is decided here.
+		for (const gesture of ["cellLongPressed", "cellRightClicked"]) {
+			this._board.on(gesture, (index) => {
+				this.game.select(index);
+				this.game.toggleCat(index);
+			});
+		}
 		this._board.on("dragStarted", (index) => this.game.beginCrossRun(index));
 		this._board.on("dragReached", (index) => this.game.extendCrossRun(index));
 		this._board.on("dragEnded", () => this.game.endCrossRun());
@@ -99,7 +103,7 @@ export class GameScreen extends Emitter {
 			if (Ladder.isStepUp(game.levelNumber)) {
 				this._showStatus("Bigger board from here on — take your time.");
 			} else {
-				this._showStatus("Tap or drag along a row to cross out. Double-tap to place a cat.");
+				this._showStatus("Tap or drag to cross out. Hold a cell to place a cat.");
 			}
 		});
 		game.on("timeChanged", (seconds) => {
