@@ -31,7 +31,14 @@
 		<h1>Nine Lives</h1>
 		<p class="subtitle">One cat per row, column and colour. No touching.</p>
 		<button id="play-button" type="button" class="primary">Play level 1</button>
+		<!-- Built from Ladder.DIFFICULTIES, so which level each one starts cannot
+		     drift from the ladder that decides the boards. -->
+		<div id="start-at" class="start-at"></div>
 		<div id="menu-stats" class="stats"></div>
+		<p id="session-notice" class="notice" hidden>
+			Signed out. The game plays on, but updates wait until you
+			<button id="signin-button" type="button" class="inline">sign in</button>.
+		</p>
 	</section>
 
 	<section id="game-screen" class="screen game" hidden>

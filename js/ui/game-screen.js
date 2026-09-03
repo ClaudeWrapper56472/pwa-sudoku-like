@@ -40,6 +40,10 @@ export class GameScreen extends Emitter {
 		this._againButton = root.querySelector("#again-button");
 		this._resultMenuButton = root.querySelector("#result-menu-button");
 
+		this._playArea = root.querySelector(".play-area");
+		this._headerRow = root.querySelector(".header-row");
+		this._bottomBar = root.querySelector(".bottom-bar");
+
 		this._lives = new LivesView(root.querySelector("#lives"));
 		this._board = new BoardView(root.querySelector("#board"), game);
 
@@ -56,6 +60,34 @@ export class GameScreen extends Emitter {
 		this._resultPanel.hidden = true;
 		this._statusLabel.textContent = "";
 		this._clearButton.disabled = true;
+
+		// The screen for the viewport changing, the bottom bar for a status message
+		// that wraps onto another line. Neither depends on how big the board is, so
+		// publishing a new limit cannot start a loop.
+		const fit = new ResizeObserver(() => this._publishBoardLimit());
+		fit.observe(this.root);
+		fit.observe(this._bottomBar);
+	}
+
+	/**
+	 * How much height is left for the board: the screen, less its padding, less
+	 * everything stacked around it.
+	 *
+	 * The board is square and takes the width it is given, so on a screen too
+	 * short for a full-width one it is the height that has to do the deciding. The
+	 * stylesheet caps the board's width with this.
+	 */
+	_publishBoardLimit() {
+		const height = this.root.clientHeight;
+		// Hidden, so there is nothing to measure and the last limit still holds.
+		if (height === 0) return;
+		const styles = getComputedStyle(this.root);
+		const gap = parseFloat(getComputedStyle(this._playArea).rowGap) || 0;
+		const around = this._headerRow.offsetHeight + this._progressLabel.offsetHeight
+			+ this._bottomBar.offsetHeight + gap * 2;
+		const limit = height - parseFloat(styles.paddingTop)
+			- parseFloat(styles.paddingBottom) - around;
+		this.root.style.setProperty("--board-limit", `${Math.max(limit, 0)}px`);
 	}
 
 	_wireBoard() {
@@ -185,7 +217,9 @@ export class GameScreen extends Emitter {
 	_onPlayAgainPressed() {
 		this._resultPanel.hidden = true;
 		if (this._retryMode) this.game.restartLevel();
-		else this.game.startLevel();
+		// The level after the one just finished, which is what the button says.
+		// A player who dropped back to an easier board carries on from there.
+		else this.game.startLevel(this.game.levelNumber + 1);
 	}
 
 	_onBackPressed() {

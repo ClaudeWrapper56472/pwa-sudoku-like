@@ -17,9 +17,10 @@ import { Emitter } from "./util/emitter.js";
  * the toolbar and the top bar each listen for the events they care about and know
  * nothing about each other.
  *
- * There is no difficulty menu. The player is on a level, the level decides the
- * board, and finishing one moves them up. Ladder owns that mapping; SaveManager
- * owns the number.
+ * The player is on a level, the level decides the board, and finishing one moves
+ * them up. Ladder owns that mapping; SaveManager owns the number. The menu's
+ * difficulty buttons only choose a level to start on -- nothing else picks a
+ * board.
  *
  * Generation runs in a Web Worker. Carving regions that admit exactly one
  * solution is a rejection loop, so the main thread stays free to draw the

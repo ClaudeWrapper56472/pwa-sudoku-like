@@ -3,9 +3,10 @@ import * as Grid from "./grid.js";
 /**
  * Turns a level number into a board to generate.
  *
- * There is no difficulty menu. Level 1 is a gentle 5x5 and every level after it
- * is a little harder, so the player meets each new idea once they have had some
- * practice with the last one.
+ * Level 1 is a gentle 5x5 and every level after it is a little harder, so the
+ * player meets each new idea once they have had some practice with the last one.
+ * The menu's Easy, Medium and Hard are three entry points onto this one ladder
+ * (see DIFFICULTIES), not three separate settings.
  *
  * Difficulty climbs on two axes. The board grows, and within each size the
  * techniques required ramp from Easy to Expert -- so the curve rises steadily and
@@ -75,6 +76,69 @@ export function tierFor(level) {
 
 export function minRegionCells(level) {
 	return level >= NO_SINGLE_CELL_REGIONS_FROM ? 2 : 1;
+}
+
+/**
+ * The entry points the menu offers, in order, as the board size each opens on.
+ *
+ * An entry point a player has not reached yet opens on the first level of its
+ * size, where the technique ramp begins again at Easy: somebody picking Hard
+ * wants a bigger board, not to be dropped into Expert deductions on a board they
+ * have never seen. One they are past opens on the furthest level they reached
+ * inside it -- see difficultyLevel.
+ */
+export const DIFFICULTIES = [
+	{ name: "Easy", size: FIRST_SIZE },
+	{ name: "Medium", size: 7 },
+	{ name: "Hard", size: 9 },
+];
+
+/** The first level played on a board of this size. */
+export function firstLevelAtSize(size) {
+	const wanted = Math.min(Math.max(size, FIRST_SIZE), LAST_SIZE);
+	let level = FIRST_LEVEL;
+	for (let step = 0; step < LEVELS_PER_SIZE.length; step += 1) {
+		if (FIRST_SIZE + step >= wanted) break;
+		level += LEVELS_PER_SIZE[step];
+	}
+	return level;
+}
+
+/**
+ * The last level that belongs to an entry point. The final one runs on forever,
+ * as the level numbers do.
+ */
+function lastLevelIn(index) {
+	const next = DIFFICULTIES[index + 1];
+	return next === undefined ? Infinity : firstLevelAtSize(next.size) - 1;
+}
+
+/**
+ * Where an entry point starts a player who has reached `level`: the furthest
+ * level they have got to within it, or its first level if they have not got there
+ * yet.
+ *
+ * So the band a player is currently in always starts them exactly where they
+ * left off, whatever else is in the save, and the bands behind them offer the
+ * hardest board they saw there rather than sending them back to level 1 to earn
+ * it again.
+ */
+export function difficultyLevel(index, level) {
+	const first = firstLevelAtSize(DIFFICULTIES[index].size);
+	return Math.min(Math.max(level, first), lastLevelIn(index));
+}
+
+/**
+ * Which entry point a level sits in, as an index into DIFFICULTIES. Sizes between
+ * two entry points belong to the lower one -- an 8x8 is somewhere in Medium.
+ */
+export function difficultyIndexFor(level) {
+	const size = sizeFor(level);
+	let found = 0;
+	for (let index = 0; index < DIFFICULTIES.length; index += 1) {
+		if (DIFFICULTIES[index].size <= size) found = index;
+	}
+	return found;
 }
 
 /** Short caption for the top bar: "Level 7  ·  Medium 6x6". */

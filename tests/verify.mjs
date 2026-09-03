@@ -162,6 +162,25 @@ group("Ladder");
 		Ladder.minRegionCells(Ladder.NO_SINGLE_CELL_REGIONS_FROM), 2);
 	eq("and are allowed before it",
 		Ladder.minRegionCells(Ladder.NO_SINGLE_CELL_REGIONS_FROM - 1), 1);
+
+	for (const entry of Ladder.DIFFICULTIES) {
+		const level = Ladder.firstLevelAtSize(entry.size);
+		eq(`${entry.name} opens on a ${entry.size}x${entry.size}`, Ladder.sizeFor(level), entry.size);
+		eq(`${entry.name} opens at the gentle end of it`, Ladder.tierFor(level), Grid.Tier.EASY);
+		eq(`${entry.name} knows which band it is`, Ladder.difficultyIndexFor(level),
+			Ladder.DIFFICULTIES.indexOf(entry));
+	}
+	eq("a level between two entry points belongs to the lower one",
+		Ladder.difficultyIndexFor(50), 1);
+
+	for (const level of [1, 4, 12, 30, 55, 80, 120, 400]) {
+		eq(`the entry point holding level ${level} starts there`,
+			Ladder.difficultyLevel(Ladder.difficultyIndexFor(level), level), level);
+	}
+	eq("an entry point not reached yet starts at its own first level",
+		Ladder.difficultyLevel(2, 4), Ladder.firstLevelAtSize(9));
+	eq("and one already passed starts at its last",
+		Ladder.difficultyLevel(0, 400), Ladder.firstLevelAtSize(7) - 1);
 }
 
 // --- Rating -----------------------------------------------------------------
