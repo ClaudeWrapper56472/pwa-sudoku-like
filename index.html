@@ -20,7 +20,13 @@
 
 <main id="app">
 
-	<section id="menu-screen" class="screen menu">
+	<!-- Hidden until the script has read the save and written the button label,
+	     so the menu never appears with a stale one. The boot panel covers the gap. -->
+	<div id="boot-panel" class="overlay solid">
+		<p>Loading…</p>
+	</div>
+
+	<section id="menu-screen" class="screen menu" hidden>
 		<img class="mascot" src="art/mascot.png" alt="A grinning teal cat" width="810" height="615">
 		<h1>Nine Lives</h1>
 		<p class="subtitle">One cat per row, column and colour. No touching.</p>

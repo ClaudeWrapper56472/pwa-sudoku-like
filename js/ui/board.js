@@ -227,6 +227,13 @@ export class BoardView extends Emitter {
 			const index = this._cellAt(event);
 			if (index >= 0) this.emit("cellRightClicked", index);
 		});
+
+		// iOS still zooms on a double tap here, touch-action or not. Cancelling
+		// touchend stops it. Nothing on the board listens for click, so nothing
+		// else is lost.
+		this.root.addEventListener("touchend", (event) => {
+			event.preventDefault();
+		}, { passive: false });
 	}
 
 	_press(index) {

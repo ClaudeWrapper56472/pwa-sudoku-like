@@ -56,6 +56,7 @@ screen.on("exitRequested", showMenu);
 game.on("levelFailed", () => menu.refresh());
 
 showMenu();
+document.querySelector("#boot-panel").remove();
 
 if ("serviceWorker" in navigator) {
 	window.addEventListener("load", () => {
