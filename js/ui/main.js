@@ -52,10 +52,11 @@ menu.on("playRequested", () => {
 });
 
 /**
- * A difficulty is a level to start on, nothing more. Any suspended level is
- * dropped, since the level being started takes its place in the save.
+ * A difficulty, or the way back to the furthest level: both name a level to start
+ * on and nothing more. Any suspended level is dropped, since the level being
+ * started takes its place in the save.
  */
-menu.on("difficultyChosen", (level) => {
+menu.on("levelChosen", (level) => {
 	save.clearSession();
 	showGame();
 	game.startLevel(level);

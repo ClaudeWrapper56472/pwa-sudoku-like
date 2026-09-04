@@ -90,8 +90,12 @@ export function emptySeen() {
 	return { size: 0, prints: [] };
 }
 
+/**
+ * `level` is the furthest the player has reached and only ever climbs. `playing`
+ * is the level they are on now, which a difficulty button can move backwards.
+ */
 export function emptyProgress() {
-	return { level: Ladder.FIRST_LEVEL, completed: 0 };
+	return { level: Ladder.FIRST_LEVEL, playing: Ladder.FIRST_LEVEL, completed: 0 };
 }
 
 export function emptyTierStats() {
@@ -150,12 +154,21 @@ export function normalize(document) {
 	if (!isObject(stats.progress)) {
 		stats.progress = emptyProgress();
 	} else {
+		// A save from before the two levels were separate has only the furthest
+		// one, which is also where its player left off.
+		if (!("playing" in stats.progress) && "level" in stats.progress) {
+			stats.progress.playing = stats.progress.level;
+		}
 		const defaults = emptyProgress();
 		for (const field of Object.keys(defaults)) {
 			if (!(field in stats.progress)) stats.progress[field] = defaults[field];
 		}
 	}
 	stats.progress.level = Math.max(Number(stats.progress.level), Ladder.FIRST_LEVEL);
+	stats.progress.playing = Math.max(Number(stats.progress.playing), Ladder.FIRST_LEVEL);
+	// Starting a level is what puts it in reach, so the furthest reached can never
+	// be behind the one being played.
+	stats.progress.level = Math.max(stats.progress.level, stats.progress.playing);
 	return document;
 }
 

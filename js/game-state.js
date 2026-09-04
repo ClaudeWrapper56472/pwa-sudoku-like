@@ -155,7 +155,7 @@ export class GameState extends Emitter {
 	/** Generates the level the player is currently on. */
 	async startLevel(requestedLevel = 0) {
 		if (this._generating) return;
-		this.levelNumber = requestedLevel > 0 ? requestedLevel : this.save.currentLevel();
+		this.levelNumber = requestedLevel > 0 ? requestedLevel : this.save.playingLevel();
 
 		// Built already, while the last level was being played.
 		if (this._prefetched !== null && this._prefetchedFor === this.levelNumber) {
@@ -196,7 +196,7 @@ export class GameState extends Emitter {
 	_accept(level) {
 		this._resetFor(level);
 		this.save.recordSeen(level.size, level.fingerprint());
-		this.save.recordStarted(level.tier);
+		this.save.recordStarted(this.levelNumber, level.tier);
 		this.emit("generationFinished", true);
 		this._startPrefetch(this.levelNumber + 1);
 	}
@@ -208,7 +208,7 @@ export class GameState extends Emitter {
 	 */
 	prefetchUpcoming() {
 		if (this.save.hasSession()) return;
-		this._startPrefetch(this.save.currentLevel());
+		this._startPrefetch(this.save.playingLevel());
 	}
 
 	/**

@@ -158,7 +158,11 @@ button:disabled {
 /* --- Menu ---------------------------------------------------------------- */
 
 .menu {
+	/* Centred, but not past the top edge: a stack too tall for the screen would
+	   otherwise hang off both ends and take the play button with it. Browsers
+	   without `safe` keep the line above. */
 	justify-content: center;
+	justify-content: safe center;
 	gap: 0.625rem;
 	text-align: center;
 	padding-inline: 1.625rem;
@@ -219,11 +223,6 @@ button:disabled {
 	padding-inline: 0.375rem;
 }
 
-/* The one the player is already playing within. */
-.difficulty button[aria-current] {
-	border-color: var(--accent-deep);
-}
-
 /*
  * Two lines under the name rather than one wrapping line: at three buttons to a
  * phone's width, "Level 120 · 10×10" breaks wherever it likes and leaves the
@@ -264,8 +263,23 @@ button:disabled {
  * screen. Standalone installs are locked to portrait, so this is a browser tab.
  */
 @media (max-height: 34rem) {
-	.menu .mascot {
+	/*
+	 * The art has shrunk to nothing by this height anyway. The tag line and both
+	 * headings go with it: three buttons reading Easy, Medium and Hard say what
+	 * they are, the progress lines say what they are, and the difficulty group
+	 * keeps its label for a screen reader. Without this the stack runs past the
+	 * bottom of a landscape phone.
+	 */
+	.menu .mascot,
+	.menu .subtitle,
+	.start-at h2,
+	.stats h2,
+	.card .mascot {
 		display: none;
+	}
+
+	.menu {
+		gap: 0.375rem;
 	}
 
 	.menu h1 {
@@ -274,11 +288,6 @@ button:disabled {
 
 	.stats {
 		margin-top: 0;
-	}
-
-	/* The card would be all cat and no buttons at this height. */
-	.card .mascot {
-		display: none;
 	}
 }
 
@@ -399,7 +408,8 @@ button:disabled {
 	 */
 }
 
-.cell.is-selected {
+/* The keyboard's cursor. A tap does not raise it: see BoardView.showSelection. */
+.board.is-keyboard .cell.is-selected {
 	box-shadow: inset 0 0 0 max(2px, calc(var(--cell) * 0.06)) var(--ink);
 }
 

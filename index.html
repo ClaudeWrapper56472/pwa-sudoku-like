@@ -33,6 +33,9 @@
 		<h1>Nine Lives</h1>
 		<p class="subtitle">One cat per row, column and colour. No touching.</p>
 		<button id="play-button" type="button" class="primary">Play level 1</button>
+		<!-- Shown only when the play button is offering a different level, so the
+		     menu says "carry on" once rather than twice. -->
+		<button id="furthest-button" type="button" hidden>Back to level 1</button>
 		<!-- Built from Ladder.DIFFICULTIES, so which level each one starts cannot
 		     drift from the ladder that decides the boards. -->
 		<div id="start-at" class="start-at"></div>

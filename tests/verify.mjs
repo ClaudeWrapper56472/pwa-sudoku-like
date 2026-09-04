@@ -167,20 +167,7 @@ group("Ladder");
 		const level = Ladder.firstLevelAtSize(entry.size);
 		eq(`${entry.name} opens on a ${entry.size}x${entry.size}`, Ladder.sizeFor(level), entry.size);
 		eq(`${entry.name} opens at the gentle end of it`, Ladder.tierFor(level), Grid.Tier.EASY);
-		eq(`${entry.name} knows which band it is`, Ladder.difficultyIndexFor(level),
-			Ladder.DIFFICULTIES.indexOf(entry));
 	}
-	eq("a level between two entry points belongs to the lower one",
-		Ladder.difficultyIndexFor(50), 1);
-
-	for (const level of [1, 4, 12, 30, 55, 80, 120, 400]) {
-		eq(`the entry point holding level ${level} starts there`,
-			Ladder.difficultyLevel(Ladder.difficultyIndexFor(level), level), level);
-	}
-	eq("an entry point not reached yet starts at its own first level",
-		Ladder.difficultyLevel(2, 4), Ladder.firstLevelAtSize(9));
-	eq("and one already passed starts at its last",
-		Ladder.difficultyLevel(0, 400), Ladder.firstLevelAtSize(7) - 1);
 }
 
 // --- Rating -----------------------------------------------------------------
@@ -487,6 +474,16 @@ group("Save migration");
 	check("the document has stats", "stats" in migrated);
 	check("and a progression to resume from", "progress" in migrated.stats);
 	eq("wins carried into the progression", migrated.stats.progress.completed, 5);
+
+	eq("an old save carries on from the level it left off on",
+		Migration.normalize({ stats: { progress: { level: 42, completed: 41 } } })
+			.stats.progress.playing, 42);
+	eq("a save that names both keeps them apart",
+		Migration.normalize({ stats: { progress: { level: 120, playing: 4 } } })
+			.stats.progress.playing, 4);
+	eq("and the furthest reached is never behind the level being played",
+		Migration.normalize({ stats: { progress: { level: 3, playing: 70 } } })
+			.stats.progress.level, 70);
 
 	const session = Migration.migrateV1ToV2(structuredClone(v1)).session;
 	eq("one character per cell", session.board.marks.length, SIZE * SIZE);

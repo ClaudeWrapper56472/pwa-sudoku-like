@@ -17,22 +17,27 @@ cannot wipe a diagonal through your working. Crossing out is the bulk of play, s
 it gets the cheap gesture — and it is free, a note to yourself that is never
 checked.
 
-**Hold a cell** to place a cat. That is the committing move and the only one that
-costs anything: a cat on the wrong cell is refused and **spends one of three
-lives**. Lose all three and you start that same level again. A hold is harder to
-do by accident than a tap, and because nothing is released until it fires, it
-never flashes a cross on the way to the cat.
+**Double tap a cell** to place a cat. That is the committing move and the only one
+that costs anything: a cat on the wrong cell is refused and **spends one of three
+lives**. Lose all three and you start that same level again. The first of the two
+taps crosses the cell out, so a cat shows a cross for a moment on its way down —
+the alternative is every cross waiting to see whether a second tap follows, and
+crossing out is far too common to make it wait.
 
 Level 1 is a gentle 5×5 and every level after it is a little harder. Finishing one
 moves you up; losing one does not move you back. **Easy, Medium and Hard** on the
 menu are three places to join that one ladder rather than three separate settings:
-the first 5×5, 7×7 and 9×9 board, or the furthest level you have reached in each
-if you are already past it. The level you are up to is always one of the three, so
-it is always one press away.
+the first 5×5, 7×7 and 9×9 board, always from the beginning of that stretch.
+
+Dropping back to an easier board does not cost you anything. The save keeps two
+numbers -- the level you are playing and the furthest you have reached -- and the
+menu offers a way back to the furthest one whenever the play button is carrying on
+from somewhere else.
 
 **Keyboard:** arrows move, `Space`/`X` crosses out, `Enter`/`C` places a cat,
-`Backspace` clears, `H` hints, `Cmd`/`Ctrl`+`Z` undoes, `Esc` leaves. Right-click
-is the mouse shorthand for a hold.
+`Backspace` clears, `H` hints, `Cmd`/`Ctrl`+`Z` undoes, `Esc` leaves. The selected
+cell is outlined while you are playing by key; a tap puts the outline away again.
+Right-click is the mouse's one-press way to place a cat.
 
 ## Running it
 
@@ -49,7 +54,7 @@ Installing it from the browser's Add to Home Screen gives a standalone portrait
 app that plays offline.
 
 ```bash
-node tests/verify.mjs      # 126 assertions over the puzzle layer, about a second
+node tests/verify.mjs      # 115 assertions over the puzzle layer, about a second
 ```
 
 The self-check needs Node 18 or newer (`structuredClone`, `crypto`). It runs the

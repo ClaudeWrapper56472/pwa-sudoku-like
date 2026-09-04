@@ -3,16 +3,19 @@ import * as Ladder from "../puzzle/ladder.js";
 import { Emitter } from "../util/emitter.js";
 
 /**
- * Title screen. The play button carries on from a suspended level if there is
- * one, and otherwise starts the level the player is up to. Below it, Easy, Medium
- * and Hard start their part of the ladder, each at the furthest level the player
- * has reached there.
+ * Title screen, and three ways off it.
  *
- * The menu does not decide which of those it is -- it just reports the press and
- * lets the router work out whether there is a game to resume. All it asks the
- * save for is what to write on the buttons.
+ * The play button carries on: a suspended level if there is one, otherwise the
+ * level the player is on. Below it, and only when the two have parted company,
+ * a button back to the furthest level they have reached -- the way back from an
+ * easier board. Then Easy, Medium and Hard, which always start their part of the
+ * ladder from the beginning.
  *
- * Emits: playRequested(), difficultyChosen(level)
+ * The menu does not decide what carrying on means -- it just reports the press
+ * and lets the router work out whether there is a game to resume. All it asks
+ * the save for is what to write on the buttons.
+ *
+ * Emits: playRequested(), levelChosen(level)
  */
 export class MenuScreen extends Emitter {
 	constructor(root, save) {
@@ -20,11 +23,13 @@ export class MenuScreen extends Emitter {
 		this.root = root;
 		this.save = save;
 		this._playButton = root.querySelector("#play-button");
+		this._furthestButton = root.querySelector("#furthest-button");
 		this._startAt = root.querySelector("#start-at");
 		this._stats = root.querySelector("#menu-stats");
-		this._difficultyButtons = [];
 
 		this._playButton.addEventListener("click", () => this.emit("playRequested"));
+		this._furthestButton.addEventListener("click",
+			() => this.emit("levelChosen", this.save.furthestLevel()));
 		this._buildDifficulties();
 		save.on("statsChanged", () => this.refresh());
 		save.on("sessionAvailable", () => this.refresh());
@@ -32,24 +37,45 @@ export class MenuScreen extends Emitter {
 	}
 
 	refresh() {
-		if (this.save.hasSession()) {
-			const session = this.save.session();
-			const seconds = Math.floor(Number(session.elapsed ?? 0));
-			const minutes = Math.floor(seconds / 60);
-			const rest = String(seconds % 60).padStart(2, "0");
-			this._playButton.textContent =
-				`Continue level ${Number(session.level ?? 1)}  ·  ${minutes}:${rest}`;
-		} else {
-			this._playButton.textContent = `Play level ${this.save.currentLevel()}`;
-		}
+		const carryingOn = this._renderPlayButton();
+		this._renderFurthest(carryingOn);
 		this._renderStats();
-		this._renderDifficulties();
+	}
+
+	/** Writes the play button, and answers which level it would start. */
+	_renderPlayButton() {
+		if (!this.save.hasSession()) {
+			const level = this.save.playingLevel();
+			this._playButton.textContent = `Play level ${level}`;
+			return level;
+		}
+		const session = this.save.session();
+		const level = Math.max(Number(session.level ?? Ladder.FIRST_LEVEL), Ladder.FIRST_LEVEL);
+		const seconds = Math.floor(Number(session.elapsed ?? 0));
+		const minutes = Math.floor(seconds / 60);
+		const rest = String(seconds % 60).padStart(2, "0");
+		this._playButton.textContent = `Continue level ${level}  ·  ${minutes}:${rest}`;
+		return level;
 	}
 
 	/**
-	 * The difficulty row, built once and relabelled from the save on every
-	 * refresh. Each button reads the level it would start, so the row is also a
-	 * statement of where the player has got to.
+	 * The way back to the furthest level reached. Hidden while the play button is
+	 * already offering it, which is the usual case: the two only part company
+	 * after a difficulty button drops the player onto an easier board.
+	 */
+	_renderFurthest(carryingOn) {
+		const furthest = this.save.furthestLevel();
+		this._furthestButton.hidden = furthest === carryingOn;
+		if (this._furthestButton.hidden) return;
+		const size = Ladder.sizeFor(furthest);
+		this._furthestButton.textContent =
+			`Back to level ${furthest}  ·  ${Grid.tierName(Ladder.tierFor(furthest))} ${size}×${size}`;
+	}
+
+	/**
+	 * The difficulty row. Each button starts its part of the ladder from the
+	 * beginning, whatever the player has done since, so the labels are fixed and
+	 * are written once here.
 	 */
 	_buildDifficulties() {
 		const heading = document.createElement("h2");
@@ -60,50 +86,29 @@ export class MenuScreen extends Emitter {
 		row.setAttribute("role", "group");
 		row.setAttribute("aria-label", "Start at a difficulty");
 
-		for (const [index, entry] of Ladder.DIFFICULTIES.entries()) {
+		for (const entry of Ladder.DIFFICULTIES) {
+			const start = Ladder.firstLevelAtSize(entry.size);
 			const button = document.createElement("button");
 			button.type = "button";
 			const level = document.createElement("span");
 			level.className = "level";
+			level.textContent = `Level ${start}`;
 			const size = document.createElement("span");
 			size.className = "size";
+			size.textContent = `${entry.size}×${entry.size}`;
 			button.append(document.createTextNode(entry.name), level, size);
-			// Read at press time rather than captured: which level a difficulty
-			// starts moves with the save.
-			button.addEventListener("click", () => this.emit("difficultyChosen",
-				Ladder.difficultyLevel(index, this.save.currentLevel())));
-			this._difficultyButtons.push(button);
+			// The × needs saying in words for a screen reader.
+			button.setAttribute("aria-label",
+				`${entry.name}: level ${start}, a ${entry.size} by ${entry.size} board`);
+			button.addEventListener("click", () => this.emit("levelChosen", start));
 			row.append(button);
 		}
 
 		this._startAt.replaceChildren(heading, row);
 	}
 
-	/**
-	 * Labels each difficulty with the level it starts and marks the one the player
-	 * is up to. That button is their furthest level, so there is always a way back
-	 * to it from the menu -- including while a suspended level is holding the play
-	 * button, which is the only other way there.
-	 */
-	_renderDifficulties() {
-		const current = this.save.currentLevel();
-		const band = Ladder.difficultyIndexFor(current);
-		this._difficultyButtons.forEach((button, index) => {
-			const entry = Ladder.DIFFICULTIES[index];
-			const level = Ladder.difficultyLevel(index, current);
-			const size = Ladder.sizeFor(level);
-			button.querySelector(".level").textContent = `Level ${level}`;
-			button.querySelector(".size").textContent = `${size}×${size}`;
-			// The × needs saying in words for a screen reader.
-			button.setAttribute("aria-label",
-				`${entry.name}: level ${level}, a ${size} by ${size} board`);
-			if (index === band) button.setAttribute("aria-current", "true");
-			else button.removeAttribute("aria-current");
-		});
-	}
-
 	_renderStats() {
-		const level = this.save.currentLevel();
+		const level = this.save.playingLevel();
 		const size = Ladder.sizeFor(level);
 		const completed = this.save.levelsCompleted();
 		const streak = this.save.stats().streak ?? {};

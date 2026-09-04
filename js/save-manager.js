@@ -140,9 +140,18 @@ export class SaveManager extends Emitter {
 		return this.stats().progress ?? Migration.emptyProgress();
 	}
 
-	/** The level the player is on now. Levels are one-based and only ever go up. */
-	currentLevel() {
-		return Math.max(Number(this.progress().level ?? Ladder.FIRST_LEVEL), Ladder.FIRST_LEVEL);
+	/** The level the player is on now, which the menu can send backwards. */
+	playingLevel() {
+		return Math.max(Number(this.progress().playing ?? Ladder.FIRST_LEVEL), Ladder.FIRST_LEVEL);
+	}
+
+	/**
+	 * The furthest level they have reached, which only ever climbs. Never behind
+	 * the level being played, whatever a hand-edited save says.
+	 */
+	furthestLevel() {
+		return Math.max(Number(this.progress().level ?? Ladder.FIRST_LEVEL),
+			Ladder.FIRST_LEVEL, this.playingLevel());
 	}
 
 	levelsCompleted() {
@@ -181,7 +190,19 @@ export class SaveManager extends Emitter {
 		this.emit("statsChanged");
 	}
 
-	recordStarted(tier) {
+	/**
+	 * Records a level being started. Starting one is what moves the player to it,
+	 * so both progress numbers are written here: the level being played, and the
+	 * furthest reached when this is a new best.
+	 */
+	recordStarted(level, tier) {
+		const progress = this.progress();
+		progress.playing = level;
+		progress.level = Math.max(Number(progress.level ?? level), level);
+		const statsBlock = this.stats();
+		statsBlock.progress = progress;
+		this._document.stats = statsBlock;
+
 		const entry = this._tierEntry(tier);
 		entry.started = Number(entry.started ?? 0) + 1;
 		this._write();
@@ -193,11 +214,14 @@ export class SaveManager extends Emitter {
 	 *
 	 * The level number advances here rather than in GameState so that it cannot
 	 * get out of step with the document: the same write that records the win is
-	 * the one that says which level comes next.
+	 * the one that says which level comes next. A win on a level below the
+	 * furthest reached carries on from where it was played and leaves the furthest
+	 * alone.
 	 */
 	recordWin(level, tier, seconds, mistakes, hints) {
 		const progress = this.progress();
 		progress.level = Math.max(Number(progress.level ?? level), level + 1);
+		progress.playing = level + 1;
 		progress.completed = Number(progress.completed ?? 0) + 1;
 		const statsBlock = this.stats();
 		statsBlock.progress = progress;

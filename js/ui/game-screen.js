@@ -97,7 +97,7 @@ export class GameScreen extends Emitter {
 		});
 		// Two ways to commit a cat, one meaning. The board reports the gesture; what
 		// it amounts to is decided here.
-		for (const gesture of ["cellLongPressed", "cellRightClicked"]) {
+		for (const gesture of ["cellDoubleTapped", "cellRightClicked"]) {
 			this._board.on(gesture, (index) => {
 				this.game.select(index);
 				this.game.toggleCat(index);
@@ -135,7 +135,7 @@ export class GameScreen extends Emitter {
 			if (Ladder.isStepUp(game.levelNumber)) {
 				this._showStatus("Bigger board from here on — take your time.");
 			} else {
-				this._showStatus("Tap or drag to cross out. Hold a cell to place a cat.");
+				this._showStatus("Tap or drag to cross out. Double tap to place a cat.");
 			}
 		});
 		game.on("timeChanged", (seconds) => {
@@ -196,6 +196,8 @@ export class GameScreen extends Emitter {
 			}
 			const game = this.game;
 			const key = event.key;
+			// Playing by key, so the selected cell needs its outline back.
+			this._board.showSelection(true);
 			if (key === " " || key === "x" || key === "X") game.toggleCross(game.selected);
 			else if (key === "Enter" || key === "c" || key === "C") game.toggleCat(game.selected);
 			else if (key === "Backspace" || key === "Delete") game.clearCell(game.selected);
