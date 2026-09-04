@@ -427,6 +427,16 @@ button:disabled {
 	stroke-linecap: round;
 }
 
+/*
+ * The same arms drawn wider and underneath, so a cross keeps its shape and gains
+ * an edge rather than a shadow. It is what stops a cream cross dissolving into
+ * the paler regions, and a red one into the rose.
+ */
+.cross .edge {
+	stroke: var(--ink);
+	stroke-width: 15; /* 2 either side of the 11 above */
+}
+
 .cell.is-cross .cross {
 	display: block;
 	stroke: var(--mark);

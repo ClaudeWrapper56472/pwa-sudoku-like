@@ -107,8 +107,10 @@ export class BoardView extends Emitter {
 			cross.setAttribute("viewBox", "0 0 100 100");
 			cross.setAttribute("aria-hidden", "true");
 			// reach 24 of a 100-unit cell, stroke 11 -- the proportions the original
-			// drew, so a cross reads the same at every board size.
-			cross.innerHTML = '<path d="M26 26 74 74 M74 26 26 74" />';
+			// drew, so a cross reads the same at every board size. Twice: the first
+			// copy is drawn wider and underneath, which is the dark edge.
+			const arms = "M26 26 74 74 M74 26 26 74";
+			cross.innerHTML = `<path class="edge" d="${arms}" /><path d="${arms}" />`;
 			cell.append(cross);
 
 			const cat = document.createElement("img");
