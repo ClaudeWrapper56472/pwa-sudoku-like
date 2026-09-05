@@ -15,7 +15,11 @@
 <title>Nine Lives</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!-- 180 square is the size iOS wants. Safari caches this one by URL and a home
+     screen icon is baked in when the app is added, so the unix timestamp in the
+     name is the way to hand it a file it has never seen: redraw the art, rename
+     it to `date +%s`, change the two references. -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180-1788505200.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>

@@ -20,6 +20,8 @@
 	--accent: #ef8f5a;
 	--accent-deep: #d4703c;
 	--mint: #74bfa0; /* the hinted cell */
+	--go: #28a745; /* the way on out of a card */
+	--go-deep: #1e7e34;
 
 	--edge: #e2cfb4; /* button and card borders */
 	--edge-hover: #d8bf9d;
@@ -473,6 +475,32 @@ button:disabled {
 	display: block;
 }
 
+/*
+ * A cat landing on a cell. It grows, shakes its head twice and settles.
+ *
+ * scale and rotate rather than a transform, because the centring above is a
+ * translate: the three compose, so the animation never has to restate it.
+ */
+@keyframes cat-pounce {
+	0%   { scale: 1;    rotate: 0deg; }
+	25%  { scale: 1.18; rotate: -9deg; }
+	45%  { scale: 1.18; rotate: 8deg; }
+	65%  { scale: 1.14; rotate: -5deg; }
+	85%  { scale: 1.06; rotate: 3deg; }
+	100% { scale: 1;    rotate: 0deg; }
+}
+
+.cell.is-placing .cat {
+	animation: cat-pounce 420ms ease-out;
+}
+
+/* A grown cat reaches further over its edges than the gap allows for, and the
+   cells after it in the grid are painted on top. This lifts it over them for as
+   long as it is moving. */
+.cell.is-placing {
+	z-index: 1;
+}
+
 /* --- Bottom bar ---------------------------------------------------------- */
 
 .bottom-bar {
@@ -557,8 +585,50 @@ button:disabled {
 	white-space: pre-wrap;
 }
 
+/*
+ * The card asks a question with two answers, so its buttons are the same size
+ * and carry the same ink. The fill is what separates them, and it needs its own
+ * hover and press states, because the ones every other button gets would paint
+ * over it.
+ *
+ * Green rather than the accent, which is the colour of a cross and of a cat in
+ * the wrong place -- the wrong note to end a lost level on. Cream on it rather
+ * than ink, which this fill is too dark to carry.
+ */
+.card button.primary {
+	min-height: 3.25rem;
+	border-color: var(--go-deep);
+	background: var(--go);
+	color: var(--cream);
+	font-size: inherit;
+}
+
+@media (hover: hover) {
+	.card button.primary:hover {
+		border-color: var(--go-deep);
+		background: var(--go-deep);
+		color: var(--cream);
+	}
+}
+
+.card button.primary:active {
+	border-color: color-mix(in srgb, black 12%, var(--go-deep));
+	background: color-mix(in srgb, black 12%, var(--go-deep));
+	color: var(--cream);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	button {
 		transition: none;
+	}
+
+	.cell.is-placing .cat {
+		animation: none;
+	}
+
+	/* No animation is no animationend either, so the class stays on the cell.
+	   The lift has to go with the movement that earned it. */
+	.cell.is-placing {
+		z-index: auto;
 	}
 }

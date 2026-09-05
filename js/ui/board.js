@@ -62,6 +62,7 @@ export class BoardView extends Emitter {
 		this._pointerType = "";
 
 		this._installPointerHandlers();
+		this._clearPounceWhenDone();
 		new ResizeObserver(() => this._measure()).observe(this.root);
 
 		game.on("levelLoaded", () => {
@@ -125,7 +126,9 @@ export class BoardView extends Emitter {
 		}
 		this.root.append(fragment);
 		this._measure();
-		this.refreshAll();
+		// A board arrives with its saved cats already on it. They are where the
+		// player left them, not landing, so they do not pounce.
+		this.refreshAll(false);
 	}
 
 	/**
@@ -149,17 +152,53 @@ export class BoardView extends Emitter {
 	 * a hundred cells, and the reveal at the end of a level touches all of them
 	 * anyway; the simplicity is worth more than the saved comparisons.
 	 */
-	refreshAll() {
+	refreshAll(animate = true) {
 		if (this._cells.length === 0) return;
 		const state = this.game.board;
 		for (let index = 0; index < this._cells.length; index += 1) {
 			const cell = this._cells[index];
 			const mark = state.marks[index];
-			cell.classList.toggle("is-cat", mark === Grid.Mark.CAT);
+			const cat = mark === Grid.Mark.CAT;
+			// Gaining a cat, rather than having one, is what animates. Comparing
+			// against the class is comparing against what is on screen now, which is
+			// the only thing the animation is about.
+			if (animate && cat && !cell.classList.contains("is-cat")) this._pounce(cell);
+			cell.classList.toggle("is-cat", cat);
 			cell.classList.toggle("is-cross", mark === Grid.Mark.EXCLUDED);
 			cell.classList.toggle("is-wrong", mark === Grid.Mark.WRONG);
 		}
 		this._refreshHighlights();
+	}
+
+	/** Runs the landing animation on a cell's cat. */
+	_pounce(cell) {
+		// Undo and place again inside the animation's own length would otherwise
+		// find the class already there and change nothing. Dropping it and reading
+		// a layout property makes the browser treat the next add as a new
+		// animation rather than the one still running.
+		if (cell.classList.contains("is-placing")) {
+			cell.classList.remove("is-placing");
+			void cell.offsetWidth;
+		}
+		cell.classList.add("is-placing");
+	}
+
+	/**
+	 * One listener for the whole board rather than one per cat: the class has to
+	 * come off when the animation stops, because it also lifts the cell above its
+	 * neighbours, and only a moving cat has any business being lifted.
+	 *
+	 * Cancelled as well as ended. Undo inside the animation's own length hides the
+	 * cat, which stops it short -- and a stopped animation that never ended would
+	 * leave the cell lifted for the rest of the level.
+	 */
+	_clearPounceWhenDone() {
+		const done = (event) => {
+			if (event.animationName !== "cat-pounce") return;
+			event.target.closest(".cell")?.classList.remove("is-placing");
+		};
+		this.root.addEventListener("animationend", done);
+		this.root.addEventListener("animationcancel", done);
 	}
 
 	_refreshHighlights() {

@@ -17,7 +17,7 @@
  * Content -- the art, the icons, the level bank -- is served cache-first. It is
  * the bulk of the bytes and it only changes when its filename does.
  */
-const CACHE = "nine-lives-v3";
+const CACHE = "nine-lives-v4";
 
 /** Files whose freshness matters more than the round trip to check it. */
 const CODE = /\.(?:html|js|css|webmanifest)$/;
@@ -29,6 +29,7 @@ const ASSETS = [
 	"css/style.css",
 	"art/cat.png",
 	"art/mascot.png",
+	"icons/apple-touch-icon-180-1788505200.png",
 	"icons/icon-192.png",
 	"icons/icon-512.png",
 	"icons/icon-1024.png",
